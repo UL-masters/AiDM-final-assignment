@@ -1,0 +1,4 @@
+data/user_movie_rating.npy
+__pycache__
+.DS_Store
+.venv
