@@ -181,8 +181,8 @@ def main():
     parser.add_argument(
         '--output',
         type=str,
-        default='similar_pairs.txt',
-        help='Path to output file (default: similar_pairs.txt)'
+        default='result.txt',
+        help='Path to output file (default: result.txt)'
     )
     parser.add_argument(
         '--threshold',
@@ -200,7 +200,13 @@ def main():
         '--bands',
         type=int,
         default=10,
-        help='Number of bands (default: 12)'
+        help='Number of bands (default: 10, giving 12 rows per band)'
+    )
+    parser.add_argument(
+        '--rows',
+        type=int,
+        default=None,
+        help='Number of rows (default: k / bands)'
     )
 
     args = parser.parse_args()
@@ -214,7 +220,7 @@ def main():
         print(f"Error: threshold must be between 0 and 1")
         sys.exit(1)
 
-    rows = args.k // args.bands
+    rows = args.k // args.bands if not args.rows else args.rows
 
     print("=" * 60)
     print("LSH User Similarity Finder")
