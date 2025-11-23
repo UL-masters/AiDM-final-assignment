@@ -6,6 +6,7 @@ Finds pairs of users with Jaccard similarity > threshold using Locality Sensitiv
 import argparse
 import sys
 import os
+import time
 import numpy as np
 from scipy.sparse import coo_matrix
 from collections import defaultdict
@@ -199,7 +200,7 @@ def main():
     parser.add_argument(
         '--bands',
         type=int,
-        default=10,
+        default=12,
         help='Number of bands (default: 10, giving 12 rows per band)'
     )
 
@@ -227,14 +228,21 @@ def main():
     print("=" * 60)
 
     # Execute pipeline
-    csr, user_movie_lists, n_users, n_movies = load_data(args.input)
+    start_time = time.time()
+    _, user_movie_lists, n_users, n_movies = load_data(args.input)
     signatures = generate_signatures(user_movie_lists, n_users, n_movies, args.k, args.seed)
     candidate_pairs = find_candidate_pairs(signatures, args.bands, rows)
     similar_pairs = filter_similar_pairs(candidate_pairs, user_movie_lists, args.threshold)
     write_output(similar_pairs, args.output)
+    total_time = time.time() - start_time
+
+    # Log run to runs.txt
+    with open('runs.txt', 'a') as f:
+        f.write(f"seed={args.seed}, k={args.k}, bands={args.bands}, rows={rows}, threshold={args.threshold}, time={total_time:.2f}s, matches={len(similar_pairs)}\n")
 
     print("=" * 60)
-    print("Done!")
+    print(f"Done! Total runtime: {total_time:.2f}s ({total_time/60:.2f} minutes)")
+    print(f"Found {len(similar_pairs)} similar pairs")
     print("=" * 60)
 
 
