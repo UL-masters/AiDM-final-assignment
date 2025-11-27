@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import argparse
 import os
 import numpy as np
@@ -8,7 +7,16 @@ from scipy.sparse import coo_matrix, csr_matrix
 import time
 
 
-def load_data(filepath: str):
+def load_data(filepath: str) -> np.ndarray:
+    """
+    load a user-movie-rating array from a .npy file
+
+    Parameters
+        filepath (str): path to the .npy file
+
+    Returns
+        np.ndarray: 2D array of shape (n_samples, 3) with [user_id, movie_id, rating]
+    """
     # check if file exists
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"{filepath} not found")
@@ -21,6 +29,19 @@ def load_data(filepath: str):
 
 
 def transform_data(data: np.ndarray):
+    """
+    transform a numpy 2d array to a COO sparse matrix. Transform it to CSR matrix for efficiency.
+
+    Parameters
+        data (np.ndarray): 2D array of shape (n_samples, 3) with [user_id, movie_id, rating]
+
+    Returns
+        csr_matrix: CSR sparse matrix of shape (n_users, n_movies) with True where a user rated a movie
+        int: total number of users
+        int: total number of movies
+        
+    """
+
     # parse columns
     users = data[:, 0].astype(dtype=int)
     movies = data[:, 1].astype(dtype=int)
@@ -44,7 +65,18 @@ def transform_data(data: np.ndarray):
     return csr, n_users, n_movies
 
 
-def csr_to_user_movie_lists(csr:csr_matrix, n_users:int):
+def csr_to_user_movie_lists(csr:csr_matrix, n_users:int) -> list:
+    """
+    create list of arrays, each array containing the movie indices rated by that user.
+
+    Parameters
+        csr (csr_matrix): CSR sparse matrix of shape (n_users, n_movies) with True where a user rated a movie
+        n_users (int): total number of users
+
+    Returns
+        list: list of arrays, each array containing the movie indices rated by that user
+    """
+
     # create list of arrays, each array contains the movie indices rated by that user
     user_movie_lists = [
         csr.indices[csr.indptr[i]:csr.indptr[i+1]]
@@ -53,7 +85,20 @@ def csr_to_user_movie_lists(csr:csr_matrix, n_users:int):
     return user_movie_lists
 
 
-def create_signatures(user_movie_lists:list[np.ndarray], n_users:int, n_movies:int):
+def create_signatures(user_movie_lists:list[np.ndarray], n_users:int, n_movies:int, k:int) -> np.ndarray:
+    """
+    compute minhash signatures for all users.
+
+    Parameters
+        user_movie_lists (list[np.ndarray]): CSR sparse matrix of shape (n_users, n_movies) with True where a user rated a movie
+        n_users (int): total number of users
+        n_movies (int): total number of movies
+        k (int): number of permutations
+
+    Returns
+        np.ndarray: MinHash signature matrix of shape (n_users, k)
+    """
+
     # create k random permutations of movie indices
     permutations = np.array([
         np.random.permutation(n_movies)
@@ -74,12 +119,38 @@ def create_signatures(user_movie_lists:list[np.ndarray], n_users:int, n_movies:i
     return signatures
 
 
-def split_signatures_into_bands(signatures, bands, rows):
+def split_signatures_into_bands(signatures:np.ndarray, bands:int, rows:int, n_users:int) -> np.ndarray:
+    """
+    split signatures into bands.
+
+    Parameters
+        signatures (np.ndarray): signature matrix of shape (n_users, k)
+        bands (int): number of bands
+        rows (int): number of rows per band
+        n_users (int): total number of users
+
+    Returns
+        np.ndarray: Array of shape (n_users, bands, rows) containing banded signatures.
+    """
+
     banded_signatures = signatures.reshape(n_users, bands, rows)
     return banded_signatures
 
 
-def put_users_in_buckets(banded_signatures):
+def put_users_in_buckets(banded_signatures:np.ndarray, rows:int, bands:int) -> list:
+    """
+    hash users into buckets based on their banded MinHash signatures.
+
+    Parameters
+        banded_signatures (np.ndarray): array of shape (n_users, bands, rows)
+        rows (int): number of rows per band
+        bands (int): number of bands
+
+    Returns
+        list: a list of length `bands`, where each element is a list of buckets
+              each bucket is a numpy array of user IDs that share the same band hash
+    """
+
     # we choose a random hash multiplier per row (for stable hashing)
     # this mixes the row values into a single integer without collisions being catastrophic.
     multipliers = np.random.randint(low=1, high=2**31 - 1, size=rows, dtype=np.int64)
@@ -111,8 +182,18 @@ def put_users_in_buckets(banded_signatures):
     return band_buckets
 
 
+def create_candidate_pairs(band_buckets:list) -> np.ndarray:
+    """
+    create candidate user pairs from LSH buckets.
 
-def create_candidate_pairs(band_buckets):
+    Parameters
+        band_buckets (list): list of bands, where each band contains
+            buckets of user IDs
+
+    Returns
+        np.ndarray: array of shape (n_pairs, 2) with unique user ID pairs
+    """
+
     candidate_pairs = set()
 
     # loop through all buckets
@@ -136,8 +217,18 @@ def create_candidate_pairs(band_buckets):
     return candidate_pairs
 
     
-def jaccard_similarity(u_items, v_items):
-    #! change this function so there is no double work
+def jaccard_similarity(u_items:np.ndarray, v_items:np.ndarray) -> float:
+    """
+    compute the Jaccard similarity between two sets of movie indices.
+
+    Parameters
+        u_items (np.ndarray): sorted unique movie indices for user u.
+        v_items (np.ndarray): sorted unique movie indices for user v.
+
+    Returns
+        float: Jaccard similarity between the two users.
+    """
+
     # intersection size
     intersection_size = np.intersect1d(u_items, v_items, assume_unique=True).size
     # union and size
@@ -147,7 +238,20 @@ def jaccard_similarity(u_items, v_items):
     return intersection_size / union_size if union_size > 0 else 0.0
 
 
-def filter_users_on_jaccard(candidate_pairs, user_movie_lists, threshold, file_name):
+def filter_users_on_jaccard(candidate_pairs:np.ndarray, user_movie_lists:list, threshold:float, file_name:str):
+    """
+    filter candidate user pairs by Jaccard similarity and write matches to a file
+
+    Parameters
+        candidate_pairs (np.ndarray): array of (u, v) user ID pairs
+        user_movie_lists (list): list of movie index arrays for each user
+        threshold (float): minimum Jaccard similarity required
+        file_name (str): path to the output file where matching pairs are appended
+
+    Returns
+        None
+    """
+
     for u, v in candidate_pairs:
         sim = jaccard_similarity(user_movie_lists[u], user_movie_lists[v])
         if sim > threshold:
@@ -166,6 +270,7 @@ def write_log_file(output_file, seed, k, bands, rows, threshold, time):
 
     with open('runs.txt', 'a') as f:
         f.write(f"seed={seed}, k={k}, bands={bands}, rows={rows}, threshold={threshold}, time={time:.2f}s, matches={matches}\n")
+
 
 def main():
     # get seed from commandline
