@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import sys
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
 import time
@@ -273,20 +274,65 @@ def write_log_file(output_file, seed, k, bands, rows, threshold, time):
 
 
 def main():
-    # get seed from commandline
-    parser = argparse.ArgumentParser(description="LSH user similarity")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser = argparse.ArgumentParser(
+        description='Find similar user pairs using LSH on Netflix data'
+    )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        required=True,
+        help='Random seed for reproducibility'
+    )
+    parser.add_argument(
+        '--input',
+        type=str,
+        default='data/user_movie_rating.npy',
+        help='Path to input .npy file (default: user_movie_rating.npy)'
+    )
+    parser.add_argument(
+        '--output',
+        type=str,
+        default='result.txt',
+        help='Path to output file (default: result.txt)'
+    )
+    parser.add_argument(
+        '--threshold',
+        type=float,
+        default=0.5,
+        help='Jaccard similarity threshold (default: 0.5)'
+    )
+    parser.add_argument(
+        '--k',
+        type=int,
+        default=120,
+        help='Number of hash functions (default: 120)'
+    )
+    parser.add_argument(
+        '--bands',
+        type=int,
+        default=20,
+        help='Number of bands (default: 10, giving 12 rows per band)'
+    )
+
     args = parser.parse_args()
+
+    # Validate parameters
+    if args.k % args.bands != 0:
+        print(f"Error: k ({args.k}) must be divisible by bands ({args.bands})")
+        sys.exit(1)
+
+
+
     # set the seed
     np.random.seed(args.seed)
-
+    
     # set some variables
-    user_movie_rating_path = "user_movie_rating.npy"
-    k = 120 # number of hash functions (permutations)
-    bands = 30
+    user_movie_rating_path = args.input
+    k = args.k # number of hash functions (permutations)
+    bands = args.bands
     rows = k // bands
-    output_file = "similar_users.txt"
-    threshold = 0.5  # Jaccard similarity threshold
+    output_file = args.output
+    threshold = args.threshold  # Jaccard similarity threshold
 
     #! this can be removed before submission
     start_time = time.time()
