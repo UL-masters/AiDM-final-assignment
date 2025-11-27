@@ -36,7 +36,7 @@ def transform_data(data: np.ndarray):
     data_values = np.ones_like(users, dtype=np.uint8)
     # use coo_matrix to create sparse matrix
     coo = coo_matrix((data_values, (users, movies)), shape=(n_users, n_movies), dtype=bool)
-    del users, movies, ratings, data # free memory
+    del users, movies, data # free memory
     # use csr format for efficient row slicing
     csr = coo.tocsr()
     del coo # free memory
@@ -119,7 +119,8 @@ def create_candidate_pairs(band_buckets):
         for bucket in buckets:
             bucket = np.asarray(bucket)
             bucket_size = bucket.size
-        
+            if bucket_size < 2 or bucket_size > 50: #! this cut off can be experimented with
+                continue
             # generate all unordered pairs inside the bucket
             i = np.repeat(np.arange(bucket_size - 1), np.arange(bucket_size - 1, 0, -1))
             j = np.concatenate([np.arange(x + 1, bucket_size) for x in range(bucket_size - 1)])
@@ -138,13 +139,10 @@ def jaccard_similarity(u_items, v_items):
     #! change this function so there is no double work
     # intersection size
     intersection_size = np.intersect1d(u_items, v_items, assume_unique=True).size
-    # union size
+    # union and size
     union = np.union1d(u_items, v_items)
-    union_size = u_items.size + v_items.size - intersection_size
-    print(len(union))
-    print(union_size)
-    if len(union) != union_size:
-        print("THIS IS A DIFFERENCE BETWEEN NICO AND MY CODE")
+    union_size = len(union)
+
     return intersection_size / union_size if union_size > 0 else 0.0
 
 
@@ -181,11 +179,11 @@ def main():
     user_movie_lists = csr_to_user_movie_lists(data, n_users)
 
     # create signatures
-    signatures = create_signatures(user_movie_lists, n_users, n_movies)
+    signatures = create_signatures(user_movie_lists, n_users, n_movies, k)
     
     # split signatures into bands and put users with identical band signatures into the same bucket
-    banded_signatures = split_signatures_into_bands(signatures, bands, rows)
-    band_buckets = put_users_in_buckets(banded_signatures)
+    banded_signatures = split_signatures_into_bands(signatures, bands, rows, n_users)
+    band_buckets = put_users_in_buckets(banded_signatures, rows, bands)
 
     # create pairs of users that are similar candidates
     candidate_pairs = create_candidate_pairs(band_buckets)
