@@ -10,7 +10,7 @@ import time
 
 def load_data(filepath: str):
     # check if file exists
-    if not os.path.exists(path=filepath):
+    if not os.path.exists(filepath):
         raise FileNotFoundError(f"{filepath} not found")
 
     # load data and raise error if data is not as expected
