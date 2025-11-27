@@ -200,7 +200,7 @@ def main():
     parser.add_argument(
         '--bands',
         type=int,
-        default=12,
+        default=20,
         help='Number of bands (default: 10, giving 12 rows per band)'
     )
 
