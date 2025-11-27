@@ -5,6 +5,7 @@ import argparse
 import os
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
+import time
 
 
 def load_data(filepath: str):
@@ -155,6 +156,17 @@ def filter_users_on_jaccard(candidate_pairs, user_movie_lists, threshold, file_n
                 # write u1,u2 to file
                 f.write(f"{u},{v}\n")
 
+
+#! this function can be removed before submission
+def write_log_file(output_file, seed, k, bands, rows, threshold, time):
+    print("at write_log_file")
+
+    with open(output_file, "r") as f:
+        matches =  sum(1 for _ in f)  # count each line to get number of pairs
+
+    with open('runs.txt', 'a') as f:
+        f.write(f"seed={seed}, k={k}, bands={bands}, rows={rows}, threshold={threshold}, time={time:.2f}s, matches={matches}\n")
+
 def main():
     # get seed from commandline
     parser = argparse.ArgumentParser(description="LSH user similarity")
@@ -170,6 +182,9 @@ def main():
     rows = k // bands
     output_file = "similar_users.txt"
     threshold = 0.5  # Jaccard similarity threshold
+
+    #! this can be removed before submission
+    start_time = time.time()
 
     # load and tranform data
     data = load_data(filepath=user_movie_rating_path)
@@ -194,6 +209,10 @@ def main():
     # calculate the jaccard simmilarity for the similar candidates. Write all user pairs to text file with score above threshold
     filter_users_on_jaccard(candidate_pairs=candidate_pairs, user_movie_lists=user_movie_lists, threshold=threshold, file_name = output_file)
 
+    #! this (3 lines)can be removed before submission
+    total_time = time.time() - start_time
+    # append to log file
+    write_log_file(output_file, args.seed, k, bands, rows, threshold, total_time, )
 
 if __name__ == "__main__":
     main()
