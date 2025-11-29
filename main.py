@@ -9,7 +9,6 @@ import os
 import time
 import numpy as np
 from scipy.sparse import coo_matrix
-from collections import defaultdict
 
 
 def load_data(file_path):
@@ -88,7 +87,7 @@ def find_candidate_pairs(signatures, bands, rows):
     banded_signatures = signatures.reshape(n_users, bands, rows)
 
     # Buckets: {band_id: {hash: [user_ids]}}
-    buckets = defaultdict(lambda: defaultdict(list))
+    buckets = {}
 
     print(f"  Hashing users into buckets...")
     for band_id in range(bands):
@@ -98,7 +97,7 @@ def find_candidate_pairs(signatures, bands, rows):
         for user_id in range(n_users):
             band_signature = tuple(banded_signatures[user_id, band_id, :])
             bucket_hash = hash(band_signature)
-            buckets[band_id][bucket_hash].append(user_id)
+            buckets.setdefault(band_id, {}).setdefault(bucket_hash, []).append(user_id)
 
     # Extract candidate pairs
     print(f"  Extracting candidate pairs from buckets...")
