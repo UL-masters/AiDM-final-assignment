@@ -12,11 +12,6 @@ THRESHOLD=0.5
 # Define k and bands combinations to test
 # Format: "k:bands"
 COMBINATIONS=(
-    "60:10"
-    "60:12"
-    "60:15"
-    "60:20"
-    "80:10"
     "80:16"
     "80:20"
     "100:10"
@@ -67,6 +62,10 @@ for COMBO in "${COMBINATIONS[@]}"; do
             --threshold $THRESHOLD \
             --k $K \
             --bands $BANDS
+
+        if [ $? -eq 124 ]; then
+            echo "  WARNING: Run timed out after 30 minutes"
+        fi
 
         echo ""
     done
